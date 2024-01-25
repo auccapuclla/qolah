@@ -2,6 +2,7 @@
 *.csv
 /data/*
 /Data/*
+*2024*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
