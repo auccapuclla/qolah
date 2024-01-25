@@ -33,9 +33,9 @@ phase = get_phase(parsed)
 vel = np.diff(phase)
 # vel = resample_by_interpolation(vel, DOWN_SAMPLE_FS, 200)
 plt.figure(figsize=(16,6))
-nfft = 1024
+nfft = 1024*2
 plt.specgram(vel, NFFT=nfft, noverlap=int(nfft*0.9), scale='dB',Fs= 200, vmin=-70)
 plt.ylim(0, 30)
-plt.title(f'{parsed.header["Time start"][:-6]}')
+plt.title(f'{parsed.header["Time start"].strftime("%Y-%m-%d %H:%M:%S")}')
 plt.colorbar()
 plt.show()
