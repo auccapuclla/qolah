@@ -19,7 +19,7 @@ def resample_by_interpolation(signal, input_fs, output_fs):
     )
     return resampled_signal
 
-filename = '2024-01-25T12:00:53.200761_laser_chip_ULN00238_laser_driver_M00435617_laser_curr_392.8mA_port_number_5.bin'
+filename = '2024-01-25T12_00_53.200761_laser_chip_ULN00238_laser_driver_M00435617_laser_curr_392.8mA_port_number_5.bin'
 file = Path('./' + filename)
 if len(sys.argv) > 1:
     file = Path('/mnt/nas-fibre-sensing/20231115_Cintech_Heterodyne_Phasemeter/' + sys.argv[1] + '.bin')
@@ -33,8 +33,8 @@ phase = get_phase(parsed)
 vel = np.diff(phase)
 # vel = resample_by_interpolation(vel, DOWN_SAMPLE_FS, 200)
 plt.figure(figsize=(16,6))
-nfft = 1024*2
-plt.specgram(vel, NFFT=nfft, noverlap=int(nfft*0.9), scale='dB',Fs= 200, vmin=-70)
+nfft = 1024*4
+plt.specgram(vel, NFFT=nfft, noverlap=int(nfft*0.9), scale='linear',Fs= 200, vmin=-70)
 plt.ylim(0, 30)
 plt.title(f'{parsed.header["Time start"].strftime("%Y-%m-%d %H:%M:%S")}')
 plt.colorbar()

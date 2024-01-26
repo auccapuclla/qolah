@@ -226,8 +226,8 @@ def plot_rad_spec(radius: bool, spectrum: bool) -> Callable:
 
 
 def main():
-    filename = '2024-01-11T15:55:37.470940_laser_chip_ULN00238_laser_driver_M00435617_laser_curr_392.8mA_port_number_5.bin'
-    file = Path('/mnt/nas-fibre-sensing/20231115_Cintech_Heterodyne_Phasemeter/' + filename)
+    filename = '2024-01-23T08:23:17.255959_laser_chip_ULN00238_laser_driver_M00435617_laser_curr_392.8mA_port_number_5.bin'
+    file = Path('./' + filename)
     if len(sys.argv) > 1:
         file = Path('/mnt/nas-fibre-sensing/20231115_Cintech_Heterodyne_Phasemeter/' + sys.argv[1] + '.bin')
         filename = sys.argv[1]
@@ -260,13 +260,6 @@ def main():
                             (8.25 - 0.875 * 2), view_const * 2.5)
         fig.tight_layout()
         plt.show(block=True)
-    csv = False
-    if csv:
-        np.savetxt(f'/scratch2/e0667612/Jan_data/csv/test_{filename}.csv', phase, delimiter=',', fmt='%f')
-    csv_radius = False
-    if csv_radius:
-        r = get_radius(parsed)
-        np.savetxt(f'/scratch2/e0667612/Jan_data/data_phase_radius/{filename}.csv', np.column_stack((phase, r)), delimiter=',', fmt='%f')
     plot_vel = True
     if plot_vel:
         vel = np.diff(phase)
@@ -297,12 +290,14 @@ def main():
         # pcm = plt.pcolormesh(times, frequencies, 10 * np.log10(Sxx), shading='auto',cmap='gray', vmin=threshold_dB, vmax=0)
         pcm = plt.pcolormesh(times, frequencies, Sxx, shading='auto',cmap='gray', vmax=0.001)
         cbar = plt.colorbar(pcm, label='Intensity (dB)')
-        print(np.max(Sxx))
+        print(f'Sxx min: {np.min(Sxx)}, max: {np.max(Sxx)}')
+        print(u'Δt=' + f'{times[1]-times[0]}s '+u'Δf=' + f'{frequencies[1]-frequencies[0]}Hz')
+
         plt.title(f'Spectrogram {parsed.header["Time start"]}')
         plt.xlabel('Time (s)')
         plt.ylabel('Frequency (Hz)')
         plt.ylim([0, 50])
-        plt.show()
+        plt.show(block=True)
     filter = False
     if filter:
         vel = np.diff(phase)
