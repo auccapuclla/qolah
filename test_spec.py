@@ -7,7 +7,8 @@ from pathlib import Path
 module_path = str(Path(__file__).parents[2])
 if module_path not in sys.path:
     sys.path.append(module_path)
-
+from matplotlib.ticker import FuncFormatter
+from datetime import datetime, timedelta
 from datetime import timedelta
 from matplotlib import colors
 from matplotlib import gridspec
@@ -172,42 +173,21 @@ def spectrogram_crop(Sxx: np.ndarray, f: np.ndarray, t: np.ndarray,
     return Sxx[f_cond(f), ...][..., t_cond(t)], f[f_cond(f)], t[t_cond(t)]
 
 def main():
-    base_dir = Path(__file__).parent
-    data_dir = base_dir.joinpath('Data')
     view_const = 5
     sparse_num_phase = 1
     sparse_num_velocity = 1
 
-    file1 = data_dir.joinpath('2023-07-06T14:04:22.913767_s499_q268435456_F0_laser2_3674mA_20km.bin')
-    # file1 = Path('/scratch2/e0667612/22_12/test/data/2023-07-06T14:04:22.913767_s499_q268435456_F0_laser2_3674mA_20km.bin')
-    file1 = Path('/scratch2/e0667612/22_12/test/2024-01-26T15:54:13.738083_laser_chip_ULN00238_laser_driver_M00435617_laser_curr_392.8mA_port_number_5.bin')
+    file1 = Path('/scratch2/e0667612/qolah/2024-01-23T08:23:17.255959_laser_chip_ULN00238_laser_driver_M00435617_laser_curr_392.8mA_port_number_5.bin')
     parsed1 = VHFparser(file1, skip=0)
-
-    # start_time = 5000 # seconds
-    # end_time = 7500
-    # start_index, end_index = crop_indices(
-    #     start_time, 
-    #     end_time, 
-    #     int(parsed1.header["sampling freq"]), 
-    #     sparse_num_phase * sparse_num_velocity,
-    #     sparse_num_phase
-    #     )
-    # print(f"[Debug] {start_index = }, {end_index = }")
-
-    # forcefully cut down on memory
-    # parsed1.i_arr = parsed1.i_arr[:end_index]
-    # parsed1.q_arr = parsed1.q_arr[:end_index]
-    # parsed1.m_arr = parsed1.m_arr[:end_index]
     phase1 = get_phase(parsed1)
     print(f'sample freq: {parsed1.header["sampling freq"]}')
     print(f"Debug {parsed1.header} : = ")
     phase1_avg = block_avg_tail(phase1, sparse_num_phase)
     velocity1 = np.diff(phase1_avg) * (parsed1.header["sampling freq"]/sparse_num_phase) # * 1550e-9
-    velocity1_avg = block_avg_tail(velocity1, sparse_num_velocity)
 
     # account for butchering of parsed headers
     parsed1.header["sampling freq"] /= (sparse_num_phase * sparse_num_velocity) # after the dust has settled
-    t = np.arange(len(velocity1_avg)) / parsed1.header["sampling freq"]
+    t = np.arange(len(velocity1)) / parsed1.header["sampling freq"]
 
     shoehorn_header = Stats()
     print(f'final sample freq {parsed1.header["sampling freq"]}')
@@ -215,11 +195,8 @@ def main():
     shoehorn_header.starttime = parsed1.header['Time start']
     shoehorn_header.network = 'QITLAB'
     shoehorn_header.location = 'NUS'
-    shoehorn_header.npts = len(velocity1_avg)
-    # tr = Trace(data=velocity1_avg, header=shoehorn_header)
-    # tr.spectrogram(cmap = 'terrain', wlen=shoehorn_header.sampling_rate / 100.0, per_lap=0.90)
-    # plt.show()
-    Sxx, f, t, ax_extent = spectrogram_data_array(velocity1_avg, 
+    shoehorn_header.npts = len(velocity1)
+    Sxx, f, t, ax_extent = spectrogram_data_array(velocity1, 
                                                   shoehorn_header.sampling_rate,
                                                   shoehorn_header.sampling_rate/100, 
                                                   0.98)
@@ -274,66 +251,36 @@ def main():
     # upper end of cmap.
     # 3. aspect = auto to allow for set_xlim, set_ylim to not squash the ax
     fig = plt.figure()
-    gs = gridspec.GridSpec(nrows=2, ncols=2, figure=fig,
+    gs = gridspec.GridSpec(nrows=1, ncols=2, figure=fig,
         wspace=0.1,
-        height_ratios=[2, 3], width_ratios=[1, .03])
-    ph_ax = plt.subplot(gs[0, 0])
-    spec_ax = plt.subplot(gs[1, 0], sharex=ph_ax)
-    colb_ax = plt.subplot(gs[1, 1])
+        width_ratios=[1, .03])
+    spec_ax = plt.subplot(gs[0, 0])
+    colb_ax = plt.subplot(gs[0, 1])
 
-    # plot spectrogram
-    cmappable = spec_ax.imshow(Sxx, cmap=trunc_cmap('terrain', 0, 0.25),
+    cmappable = spec_ax.imshow(Sxx, cmap=trunc_cmap('terrain', 0, 0.75),
                             norm=my_norm, interpolation="nearest",
-                            vmax=50,
+                            vmax=100,
                             extent=spec_ax_extent, aspect='auto')
     spec_ax.grid(False)
     # add colorbar
     plt.colorbar(cmappable, cax=colb_ax, shrink=1.0, extend='max')
-
-    # plot phase(time)
-    ph_ax.plot(np.arange(len(phase1))/2e4, phase1/1e3,
-        color='#0000ff', linewidth=0.2)
-
-    # add secondary axis: displacement
-    dis_ax = ph_ax.secondary_yaxis('right', functions=(
-        lambda x: x * 1.55/1.5,
-        lambda x: x / (1.55/1.5)
-    ))
-
     spec_ax.tick_params(axis='both', which='major', labelsize=6)
     colb_ax.tick_params(axis='both', which='major', labelsize=6)
-    ph_ax.tick_params(axis='both', which='major', labelsize=6)
-    dis_ax.tick_params(axis='both', which='major', labelsize=6)
     
-    spec_ax.set_xlabel('Time (s)', fontsize=6)
-    spec_ax.set_ylabel('Frequency (Hz)', fontsize=6)
-    colb_ax.set_ylabel('Intensity (a.u.)', fontsize=6)
-    ph_ax.set_ylabel('$\phi_d$ ($2\pi \cdot 10^3$ rad)',
-                        fontsize=6, usetex=False)
-    dis_ax.set_ylabel('$\Delta L$ (mm)',
-                        fontsize=6, usetex=False)
-    # spec_ax.set_xlim(ax_extent[0], 350.0)
-    # spec_ax.set_xlim(ax_extent[0], 2500)
+    def seconds_to_hms(seconds, _):
+        dt = parsed1.header['Time start'] + timedelta(seconds=seconds)
+        return dt.strftime("%H:%M")
+    spec_ax.xaxis.set_major_formatter(FuncFormatter(seconds_to_hms))
+
+    spec_ax.set_xlabel('Time (hh:mm)', fontsize=10)
+    spec_ax.set_ylabel('Frequency (Hz)', fontsize=10)
+    colb_ax.set_ylabel('Intensity (a.u.)', fontsize=10)
+    spec_ax.set_xlim(ax_extent[0], ax_extent[1])
     spec_ax.set_ylim(ax_extent[2], 500)
 
-    fig.set_size_inches(fig_width:=0.495*(8.3-2*0.6), 1.0*fig_width) # A4 paper is 8.3 inches by 11.7 inches
+    fig.set_size_inches(fig_width:=0.495*(8.3-2*0.6)*4, 0.7*fig_width)
     fig.tight_layout()
-    # ax.axis('tight')
     fig.subplots_adjust(left=0.110, bottom=0.095, right=0.880, top=0.955)
-
-    # add labels
-    tr = transforms.ScaledTranslation(-27/72, 2/72, fig.dpi_scale_trans)
-    ph_ax.text(0.0, 1.0, '(a)', transform=ph_ax.transAxes + tr,
-        fontsize='small', va='bottom', fontfamily='sans')
-    spec_ax.text(0.0, 1.0, '(b)', transform=spec_ax.transAxes + tr,
-        fontsize='small', va='bottom', fontfamily='sans')
-
-    # add circling
-    # for cent in [(6.8, 10.75), (72, 11.8), (187.8, 10.3), (223, 10.3), (266, 11.74), (300, 12.26), (323, 12.07)]:
-    #     c = patches.Ellipse(cent, width=(ell_w:=18),
-    #             height=(np.diff(spec_ax.get_ylim())/np.diff(spec_ax.get_xlim()))*ell_w*1.2,
-    #             linewidth=1, edgecolor='#ff0000', facecolor='none')
-    #     spec_ax.add_patch(c)
 
     plt.show(block=True)
     # fig.savefig('traffic_fig_desired_1.png', dpi=300, format='png')
