@@ -1,9 +1,11 @@
 # Ignore all Data files
 *.csv
+*.bin
 /data/*
 /Data/*
 *2024*
 .DS_Store
+*.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
